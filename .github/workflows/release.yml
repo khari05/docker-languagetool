@@ -15,6 +15,10 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-dockerupdate-[0-9]+'
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   release:
     runs-on: ubuntu-22.04
@@ -30,24 +34,21 @@ jobs:
       - name: Test
         if:  ${{ inputs.skip_tests == null || inputs.skip_tests == false }} 
         run: docker run languagetool-build mvn --projects languagetool-server clean test --also-make --errors
-      - name: Tag
-        run: |
-          echo 'DOCKER_TAG<<EOF' >> $GITHUB_ENV
-          echo $(echo ${{ github.ref }} | grep -oP '(?<=refs/tags/v).*') >> $GITHUB_ENV
-          echo 'EOF' >> $GITHUB_ENV
-      - name: Login to Docker Hub
-        run: echo "${{ secrets.DOCKERHUB_ACCESSTOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin     
-      - name: Push to Docker Hub
-        run: |
-          docker buildx build --push \
-            --tag $DOCKERHUB_REPOSITORY:$DOCKER_TAG \
-            --tag $DOCKERHUB_REPOSITORY:latest \
-            --platform linux/amd64,linux/arm64 .
-        env:
-          DOCKERHUB_REPOSITORY: erikvl87/languagetool
-      # - name: Push to GitHub Packages
-      #   run: |
-      #     docker tag languagetool docker.pkg.github.com/${{ github.repository }}/languagetool:$DOCKER_TAG
-      #     docker tag languagetool docker.pkg.github.com/${{ github.repository }}/languagetool:latest
-      #     docker login docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-      #     docker push docker.pkg.github.com/${{ github.repository }}/languagetool:$DOCKER_TAG
+      # - name: Login to Docker Container Registry
+      #   uses: docker/login-action@v1
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_ACCESSTOKEN }}
+      - name: Login to Github Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          platforms: linux/amd64, linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}, ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
