@@ -1,4 +1,4 @@
-# ARG LANGUAGETOOL_VERSION=0ff5c9d9a104e2b527e9cb1cd999ea10ffbc21be
+ARG LANGUAGETOOL_VERSION=6.4
 
 FROM debian:bookworm as build
 
@@ -29,8 +29,8 @@ RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
     update-locale LANG=en_US.UTF-8
 ENV LANG en_US.UTF-8
 
-# ARG LANGUAGETOOL_VERSION
-RUN git clone https://github.com/languagetool-org/languagetool.git --depth 1
+ARG LANGUAGETOOL_VERSION
+RUN git clone https://github.com/languagetool-org/languagetool.git --depth 1 -b v${LANGUAGETOOL_VERSION}
 WORKDIR /languagetool
 RUN ["mvn", "--projects", "languagetool-standalone", "--also-make", "package", "-DskipTests", "--quiet"]
 RUN LANGUAGETOOL_DIST_VERSION=$(xmlstarlet sel -N "x=http://maven.apache.org/POM/4.0.0" -t -v "//x:project/x:properties/x:revision" pom.xml) && unzip /languagetool/languagetool-standalone/target/LanguageTool-${LANGUAGETOOL_DIST_VERSION}.zip -d /dist
@@ -51,7 +51,7 @@ WORKDIR /languagetool
 
 # Note: When changing the base image, verify that the hunspell.sh workaround is
 # downloading the matching version of `libhunspell`. The URL may need to change.
-FROM alpine:3.18
+FROM alpine:3
 
 RUN apk add --no-cache \
     bash \
